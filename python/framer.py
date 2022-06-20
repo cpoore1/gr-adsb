@@ -1,19 +1,24 @@
 #!/usr/bin/env python
-'''
-   Copyright 2015 Wolfgang Nagele
+# -*- coding: utf-8 -*-
+#
+# Copyright 2022 gr-adsb author.
+#
+# This is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this software; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 51 Franklin Street,
+# Boston, MA 02110-1301, USA.
+#
 
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-'''
 
 import numpy
 import pmt
@@ -21,15 +26,15 @@ from gnuradio import gr
 
 LENGTH = 56
 
-
 class framer(gr.sync_block):
-  def __init__(self, tx_msgq):
+  def __init__(self):
     gr.sync_block.__init__(self,
                            name = "ADSB Framer",
                            in_sig = [numpy.byte],
                            out_sig = None)
 
-    self.tx_msgq = tx_msgq
+    #self.tx_msgq = tx_msgq
+    self.message_port_register_out(pmt.intern("out"))
 
     self.set_tag_propagation_policy(gr.TPP_DONT)
 
@@ -52,14 +57,17 @@ class framer(gr.sync_block):
       bin = in0[offset_start:offset_end]
       decoded_msg = self.decode(bin, LENGTH * 2)
       if LENGTH * 2 == len(decoded_msg):
-        self.tx_msgq.insert_tail(gr.message_from_string(decoded_msg))
+        #self.message_port_pub(pmt.intern('out'), gr.message_from_string(decoded_msg))
+        self.message_port_pub(pmt.intern('out'), pmt.intern(decoded_msg))
+        #self.tx_msgq.insert_tail(gr.message_from_string(decoded_msg))
         continue
 
       # Failed decoding of extended message - try standard length
       bin = bin[0:LENGTH * 2]
       decoded_msg = self.decode(bin, LENGTH)
       if LENGTH == len(decoded_msg):
-        self.tx_msgq.insert_tail(gr.message_from_string(decoded_msg, LENGTH))
+        self.message_port_pub(pmt.intern('out'), pmt.intern(decoded_msg))
+        #self.tx_msgq.insert_tail(gr.message_from_string(decoded_msg, LENGTH))
         continue
 
     return in0_len

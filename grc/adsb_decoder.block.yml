@@ -1,0 +1,37 @@
+id: adsb_decoder
+label: decoder
+category: '[adsb]'
+
+templates:
+  imports: import adsb
+  make: adsb.decoder(${output_type},${check_parity})
+
+parameters:
+- id: check_parity
+  label: Check parity
+  dtype: bool
+  default: True
+  options: [True, False]
+  option_labels: ["Yes", "No"]
+- id: output_type
+  label: Output Type
+  dtype: string
+  default: "csv"
+  options: ["hex", "csv", "json"]
+  option_labels: ["HEX", "CSV", "JSON"]
+
+inputs:
+- label: in
+  domain: message
+  dtype: message
+  vlen: 1
+  optional: 0
+
+outputs:
+- label: out
+  domain: message
+  dtype: message
+  vlen: 1
+  optional: 0
+
+file_format: 1

@@ -19,27 +19,48 @@
 # Boston, MA 02110-1301, USA.
 
 ########################################################################
-# Include python install macros
+# Check if there is C++ code at all
 ########################################################################
-include(GrPython)
-if(NOT PYTHONINTERP_FOUND)
+if(NOT adsb_sources)
+    MESSAGE(STATUS "No C++ sources... skipping swig/")
+    return()
+endif(NOT adsb_sources)
+
+########################################################################
+# Include swig generation macros
+########################################################################
+find_package(SWIG)
+find_package(PythonLibs)
+if(NOT SWIG_FOUND OR NOT PYTHONLIBS_FOUND)
     return()
 endif()
+include(GrSwig)
+include(GrPython)
 
 ########################################################################
-# Install python sources
+# Setup swig generation
 ########################################################################
-GR_PYTHON_INSTALL(
+set(GR_SWIG_INCLUDE_DIRS $<TARGET_PROPERTY:gnuradio::runtime_swig,INTERFACE_INCLUDE_DIRECTORIES>)
+set(GR_SWIG_TARGET_DEPS gnuradio::runtime_swig)
+
+set(GR_SWIG_LIBRARIES gnuradio-adsb)
+
+set(GR_SWIG_DOC_FILE ${CMAKE_CURRENT_BINARY_DIR}/adsb_swig_doc.i)
+set(GR_SWIG_DOC_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../include)
+
+GR_SWIG_MAKE(adsb_swig adsb_swig.i)
+
+########################################################################
+# Install the build swig module
+########################################################################
+GR_SWIG_INSTALL(TARGETS adsb_swig DESTINATION ${GR_PYTHON_DIR}/adsb)
+
+########################################################################
+# Install swig .i files for development
+########################################################################
+install(
     FILES
-    __init__.py
-    framer.py
-    decoder.py DESTINATION ${GR_PYTHON_DIR}/adsb
+    adsb_swig.i
+    ${CMAKE_CURRENT_BINARY_DIR}/adsb_swig_doc.i
+    DESTINATION ${GR_INCLUDE_DIR}/adsb/swig
 )
-
-########################################################################
-# Handle the unit tests
-########################################################################
-include(GrTest)
-
-set(GR_TEST_TARGET_DEPS gnuradio-adsb)
-set(GR_TEST_PYTHON_DIRS ${CMAKE_BINARY_DIR}/swig)

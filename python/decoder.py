@@ -1,61 +1,57 @@
 #!/usr/bin/env python
-'''
-   Copyright 2015 Wolfgang Nagele
+# -*- coding: utf-8 -*-
+#
+# Copyright 2022 gr-adsb author.
+#
+# This is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this software; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 51 Franklin Street,
+# Boston, MA 02110-1301, USA.
+#
 
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-'''
 
 import math
 import threading
 from gnuradio import gr
+import pmt
 
 LENGTH = 56
 CHARSET = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ#####################0123456789######'
 
 planes = {}
 
-
 class decoder(gr.sync_block):
-  def __init__(self, rx_msgq, tx_msgq, output_type, check_parity):
+  def __init__(self, output_type, check_parity):
     gr.sync_block.__init__(self,
                            name = "ADSB Decoder",
                            in_sig = None,
                            out_sig = None)
 
-    thread = decoder_thread(rx_msgq, tx_msgq, output_type, check_parity)
-    thread.start()
-
-
-class decoder_thread(threading.Thread):
-  def __init__(self, rx_msgq, tx_msgq, output_type, check_parity):
-    threading.Thread.__init__(self)
-    self.setDaemon(True)
-
-    self.rx_msgq = rx_msgq
-    self.tx_msgq = tx_msgq
+    self.message_port_register_in(pmt.intern("in"))
+    self.message_port_register_out(pmt.intern('out'))
+    self.set_msg_handler(pmt.intern("in"), self.handle_msg) 
     self.output_type = output_type
     self.check_parity = check_parity
-
-
-  def run(self):
-    while True:
+    
+  def handle_msg(self, msg):
       try:
-        self.decode(self.rx_msgq.delete_head().to_string())
-      except IndexError, ValueError:
+        #self.decode(self.rx_msgq.delete_head().to_string())
+        self.decode(msg)
+      except (IndexError, ValueError):
         pass
 
-
   def decode(self,decoded_msg):
+    decoded_msg = pmt.symbol_to_string(decoded_msg)
     df = bin2dec(decoded_msg[:5])
     # Sanity check DF value
     if df not in [0, 4, 5, 11, 16, 17, 19, 20, 21, 22, 24]:
@@ -128,10 +124,12 @@ class decoder_thread(threading.Thread):
         tc if tc != -1 else "",
 	"bad" if bad_parity else "ok")
 
-      self.tx_msgq.insert_tail(gr.message_from_string(adsb_str))
-
+      #self.tx_msgq.insert_tail(gr.message_from_string(adsb_str))
+      self.message_port_pub(pmt.intern('out'), pmt.intern(adsb_str))
+        
     elif "hex" == self.output_type:
-      self.tx_msgq.insert_tail(gr.message_from_string("*%X;\n" % bin2dec(decoded_msg)))
+      #self.tx_msgq.insert_tail(gr.message_from_string("*%X;\n" % bin2dec(decoded_msg)))
+      self.message_port_pub(pmt.intern('out'), pmt.intern("*%X;\n" % bin2dec(decoded_msg)))
 
 
 def bin2dec(buf):
